@@ -884,6 +884,8 @@ newgame(void)
         (void) dolookaround();
     else
         notice_all_mons(TRUE);
+
+    echoes_apply_knowledge(); /* Echoes: restore the soul's remembered item identities */
     return;
 }
 

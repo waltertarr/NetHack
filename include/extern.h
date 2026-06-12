@@ -991,6 +991,13 @@ extern void tin_details(struct obj *, int, char *);
 extern boolean Popeye(int);
 extern int Finish_digestion(void);
 
+/* ### echoes.c ### */
+
+extern boolean echoes_mode(void);
+extern void echoes_init_seed(void);
+extern void echoes_apply_knowledge(void);
+extern void echoes_save_soul(void);
+
 /* ### end.c ### */
 
 extern void done1(int);
@@ -2785,6 +2792,7 @@ extern int rne(int);
 extern int rnz(int);
 extern void init_random(int(*fn)(int));
 extern void reseed_random(int(*fn)(int));
+extern void echoes_force_seed(unsigned long); /* echoes.c */
 extern void shuffle_int_array(int *, int) NONNULLARG1;
 
 /* ### role.c ### */

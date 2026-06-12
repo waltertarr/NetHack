@@ -294,6 +294,14 @@ reseed_random(int (*fn)(int))
         init_random(fn);
 }
 
+/* Echoes of the Soul: pin the gameplay RNG to a specific timeline seed so
+   the dungeon regenerates identically on every loop. */
+void
+echoes_force_seed(unsigned long seed)
+{
+    set_random(seed, rn2);
+}
+
 /* randomize the given list of numbers  0 <= i < count */
 void
 shuffle_int_array(int *indices, int count)

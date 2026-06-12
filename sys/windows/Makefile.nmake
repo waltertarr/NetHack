@@ -876,7 +876,7 @@ COREOBJTTY = \
 	$(OTTY)display.o  $(OTTY)do.o       $(OTTY)do_name.o  $(OTTY)do_wear.o \
 	$(OTTY)dog.o      $(OTTY)dogmove.o  $(OTTY)dokick.o   $(OTTY)dothrow.o \
 	$(OTTY)drawing.o  $(OTTY)dungeon.o  $(OTTY)earlyarg.o $(OTTY)eat.o \
-	$(OTTY)end.o      $(OTTY)engrave.o  $(OTTY)exper.o    $(OTTY)explode.o \
+	$(OTTY)echoes.o   $(OTTY)end.o      $(OTTY)engrave.o  $(OTTY)exper.o    $(OTTY)explode.o \
 	$(OTTY)extralev.o $(OTTY)files.o    $(OTTY)fountain.o $(OTTY)getpos.o \
 	$(OTTY)glyphs.o   $(OTTY)iactions.o $(OTTY)hack.o     $(OTTY)insight.o \
 	$(OTTY)invent.o   $(OTTY)isaac64.o  $(OTTY)light.o    $(OTTY)lock.o \
@@ -939,7 +939,7 @@ COREOBJGUI = \
 	$(OGUI)display.o  $(OGUI)do.o       $(OGUI)do_name.o  $(OGUI)do_wear.o \
 	$(OGUI)dog.o      $(OGUI)dogmove.o  $(OGUI)dokick.o   $(OGUI)dothrow.o \
 	$(OGUI)drawing.o  $(OGUI)dungeon.o  $(OGUI)earlyarg.o $(OGUI)eat.o \
-	$(OGUI)end.o      $(OGUI)engrave.o  $(OGUI)exper.o    $(OGUI)explode.o \
+	$(OGUI)echoes.o   $(OGUI)end.o      $(OGUI)engrave.o  $(OGUI)exper.o    $(OGUI)explode.o \
 	$(OGUI)extralev.o $(OGUI)files.o    $(OGUI)fountain.o $(OGUI)getpos.o \
 	$(OGUI)glyphs.o   $(OGUI)iactions.o $(OGUI)hack.o     $(OGUI)insight.o \
 	$(OGUI)invent.o   $(OGUI)isaac64.o  $(OGUI)light.o    $(OGUI)lock.o \
@@ -3263,6 +3263,7 @@ $(OTTY)dungeon.o: dungeon.c $(HACK_H) $(INCL)dgn_file.h \
 		$(INCL)dlb.h
 $(OTTY)earlyarg.o: earlyarg.c $(HACK_H)
 $(OTTY)eat.o: eat.c $(HACK_H)
+$(OTTY)echoes.o: echoes.c $(HACK_H)
 $(OTTY)end.o: end.c $(HACK_H) $(INCL)dlb.h
 $(OTTY)engrave.o: engrave.c $(HACK_H)
 $(OTTY)exper.o: exper.c $(HACK_H)
@@ -3645,6 +3646,7 @@ $(OGUI)dungeon.o: dungeon.c $(HACK_H) $(INCL)dgn_file.h \
 		$(INCL)dlb.h
 $(OGUI)earlyarg.o: earlyarg.c $(HACK_H)
 $(OGUI)eat.o: eat.c $(HACK_H)
+$(OGUI)echoes.o: echoes.c $(HACK_H)
 $(OGUI)end.o: end.c $(HACK_H) $(INCL)dlb.h
 $(OGUI)engrave.o: engrave.c $(HACK_H)
 $(OGUI)exper.o: exper.c $(HACK_H)

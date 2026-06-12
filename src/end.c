@@ -1589,6 +1589,8 @@ really_done(int how)
         raw_print("");
         raw_print("");
     }
+
+    echoes_save_soul(); /* Echoes: persist the soul's knowledge for the next loop */
     nh_terminate(EXIT_SUCCESS);
 }
 

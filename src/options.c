@@ -7163,6 +7163,9 @@ initoptions_init(void)
     init_random(rn2);
     init_random(rn2_on_display_rng);
 
+    /* Echoes of the Soul: pin the timeline seed (no-op unless opted in) */
+    echoes_init_seed();
+
     go.opt_phase = builtin_opt;
     for (i = 0; allopt[i].name; i++) {
         if (allopt[i].addr)
