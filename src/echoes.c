@@ -429,4 +429,56 @@ echoes_selftest_reexec(void)
     }
 }
 
+/* ---- headless UI tester -------------------------------------------------
+   Two hooks in the tty windowport let the game's interface be driven and
+   observed without a console:
+     NETHACK_ECHOES_KEYS=<file>  : tty_nhgetch() reads keystrokes from <file>
+                                   (ESC once the script is exhausted).
+     NETHACK_ECHOES_UILOG=<file> : tty_putstr() appends displayed text -- which
+                                   includes pline() messages and menu lines --
+                                   to <file> for inspection.
+   Both are no-ops unless their variable is set. */
+
+boolean
+echoes_scripted_active(void)
+{
+    const char *k = getenv("NETHACK_ECHOES_KEYS");
+
+    return (boolean) (k != 0 && *k != '\0');
+}
+
+int
+echoes_scripted_key(void)
+{
+    static boolean opened = FALSE;
+    static FILE *fp = NULL;
+    int c;
+
+    if (!opened) {
+        const char *k = getenv("NETHACK_ECHOES_KEYS");
+
+        opened = TRUE;
+        if (k != 0 && *k != '\0')
+            fp = fopen(k, "r");
+    }
+    if (fp != NULL && (c = fgetc(fp)) != EOF)
+        return c;
+    return '\033'; /* ESC once the script runs out: cancels prompts/--More-- */
+}
+
+void
+echoes_transcript(const char *s)
+{
+    const char *path = getenv("NETHACK_ECHOES_UILOG");
+    FILE *fp;
+
+    if (path == 0 || *path == '\0' || s == 0)
+        return;
+    fp = fopen(path, "a");
+    if (fp != NULL) {
+        (void) fprintf(fp, "%s\n", s);
+        (void) fclose(fp);
+    }
+}
+
 /*echoes.c*/

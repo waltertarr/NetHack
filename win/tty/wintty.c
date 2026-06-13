@@ -2236,6 +2236,7 @@ tty_putstr(winid window, int attr, const char *str)
 #endif
 
     HUPSKIP();
+    echoes_transcript(str); /* Echoes UI tester: capture displayed text */
     /* Assume there's a real problem if the window is missing --
      * probably a panic message
      */
@@ -4065,7 +4066,9 @@ tty_nhgetch(void)
      */
     if (WIN_MESSAGE != WIN_ERR && wins[WIN_MESSAGE])
         wins[WIN_MESSAGE]->flags &= ~WIN_STOP;
-    if (iflags.debug_fuzzer) {
+    if (echoes_scripted_active()) {
+        i = echoes_scripted_key(); /* Echoes UI tester: scripted keystrokes */
+    } else if (iflags.debug_fuzzer) {
         i = randomkey();
     } else {
 #ifdef RESIZABLE
