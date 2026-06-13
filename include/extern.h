@@ -1008,6 +1008,8 @@ extern int echoes_scripted_key(void);
 extern void echoes_transcript(const char *);
 extern int echoes_status_cmd(void);
 extern void echoes_selftest_status(void);
+extern void echoes_death_summary(long, long);
+extern void echoes_selftest_summary(void);
 extern void echoes_reexec(void);
 extern void echoes_reloop(int);
 extern void echoes_selftest_reexec(void);

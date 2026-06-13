@@ -835,6 +835,7 @@ newgame(void)
     echoes_selftest_knowledge();
     echoes_selftest_reexec();
     echoes_selftest_status();
+    echoes_selftest_summary();
     docrt();
     flush_screen(1);
     bot();

@@ -49,7 +49,8 @@ echoes_selftest_active(void)
                       || getenv("NETHACK_ECHOES_KINJECT") != 0
                       || getenv("NETHACK_ECHOES_KVERIFY") != 0
                       || getenv("NETHACK_ECHOES_REEXEC_TARGET") != 0
-                      || getenv("NETHACK_ECHOES_STATUS") != 0);
+                      || getenv("NETHACK_ECHOES_STATUS") != 0
+                      || getenv("NETHACK_ECHOES_SUMMARY") != 0);
 }
 
 /* The fixed "Soulbound Wanderer" base.  Echoes starts classless -- the player
@@ -299,13 +300,23 @@ echoes_apply_knowledge(void)
               echoes_loop_count + 1L);
 }
 
+/* The soul's death summary, shown as a life ends. */
+void
+echoes_death_summary(long gained, long deepest)
+{
+    pline("Your soul fades, %ld memory fragment%s richer for reaching depth %ld.",
+          gained, plur(gained), deepest);
+    pline("Loop %ld ends with %ld memory fragment%s gathered in all.",
+          echoes_loop_count + 1L, echoes_fragments, plur(echoes_fragments));
+}
+
 /* Called at the start of game-over handling, BEFORE end-of-game disclosure
-   inflates what is "known".  Advances the loop counter and persists the
-   soul's genuine knowledge for the next life. */
+   inflates what is "known".  Awards fragments, shows the death summary,
+   advances the loop counter, and persists the soul's genuine knowledge. */
 void
 echoes_on_death(void)
 {
-    long deepest;
+    long deepest, gained;
 
     if (!echoes_mode())
         return;
@@ -314,7 +325,11 @@ echoes_on_death(void)
        depth term plus contributions from regions/bosses/titles/etc.; for now
        we use the depth reached and the soul's experience this life. */
     deepest = (long) deepest_lev_reached(FALSE);
-    echoes_fragments += (3L * deepest) / 2L + (long) u.ulevel;
+    gained = (3L * deepest) / 2L + (long) u.ulevel;
+    echoes_fragments += gained;
+
+    if (!echoes_selftest_active())
+        echoes_death_summary(gained, deepest);
 
     echoes_loop_count++;
     echoes_save_soul();
@@ -476,6 +491,23 @@ echoes_selftest_status(void)
     if (getenv("NETHACK_ECHOES_STATUS") == 0)
         return;
     (void) echoes_status_cmd();
+    nh_terminate(EXIT_SUCCESS);
+}
+
+/* Headless test of the death summary: when NETHACK_ECHOES_SUMMARY is set, show
+   the summary (captured via the UI transcript) and exit. */
+void
+echoes_selftest_summary(void)
+{
+    if (getenv("NETHACK_ECHOES_SUMMARY") == 0)
+        return;
+    {
+        long deepest = (long) deepest_lev_reached(FALSE);
+        long gained = (3L * deepest) / 2L + (long) u.ulevel;
+
+        echoes_fragments += gained;
+        echoes_death_summary(gained, deepest);
+    }
     nh_terminate(EXIT_SUCCESS);
 }
 
