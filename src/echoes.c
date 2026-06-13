@@ -9,13 +9,11 @@
  * non-zero value), the dungeon is regenerated from a stable "timeline
  * seed" on every new game, and the soul's knowledge -- currently the set
  * of identified object types -- is persisted to a soul file and restored
- * into the next life.
+ * into the next life.  A loop counter advances on each death.
  *
  *      The dungeon resets.  The soul remembers.
  *
- * Classic NetHack is completely untouched unless the player opts in.  This
- * is intentionally minimal: it proves the core loop (die -> same dungeon ->
- * keep your knowledge) before the larger Echoes systems are layered on.
+ * Classic NetHack is completely untouched unless the player opts in.
  */
 
 #include "hack.h"
@@ -30,6 +28,7 @@ static boolean echoes_checked = FALSE;
 static boolean echoes_enabled = FALSE;
 static boolean echoes_seed_known = FALSE;
 static unsigned long echoes_timeline_seed = 0UL;
+static long echoes_loop_count = 0L; /* deaths so far in this timeline */
 
 /* Is the current process running in Echoes of the Soul mode? */
 boolean
@@ -44,9 +43,8 @@ echoes_mode(void)
     return echoes_enabled;
 }
 
-/* Write the soul file: the timeline seed followed by every object type the
-   hero currently knows.  Safe to call before objects are initialised -- it
-   simply records whatever is known so far (typically nothing yet). */
+/* Write the soul file: the timeline seed, the loop counter, and (only when
+   inside an actual game) every object type the hero currently knows. */
 void
 echoes_save_soul(void)
 {
@@ -61,30 +59,46 @@ echoes_save_soul(void)
         return;
 
     (void) fprintf(fp, "seed %lu\n", echoes_timeline_seed);
-    for (oindx = FIRST_OBJECT; oindx < NUM_OBJECTS; oindx++)
-        if (objects[oindx].oc_name_known)
-            (void) fprintf(fp, "disco %d\n", oindx);
+    (void) fprintf(fp, "loops %ld\n", echoes_loop_count);
+    /* Only record discoveries from within an actual game.  At startup the
+       objects[] table is not game-initialised and its name_known flags do
+       not reflect anything the soul has genuinely learned. */
+    if (program_state.in_moveloop || program_state.gameover) {
+        for (oindx = FIRST_OBJECT; oindx < NUM_OBJECTS; oindx++)
+            if (objects[oindx].oc_name_known)
+                (void) fprintf(fp, "disco %d\n", oindx);
+    }
 
     (void) fclose(fp);
 }
 
-/* Called once at startup, just after the RNG is first initialised.  Loads
-   the timeline seed from the soul file, or mints a fresh one for a new
+/* Called at startup, just after the RNG is first initialised (and made
+   idempotent, since that init phase can run more than once).  Loads the
+   timeline seed and loop count from the soul file, or mints a fresh
    timeline, then pins the gameplay RNG so the dungeon is reproducible. */
 void
 echoes_init_seed(void)
 {
+    static boolean done = FALSE;
     FILE *fp;
-    unsigned long seed = 0UL;
+    char buf[BUFSZ];
 
-    if (!echoes_mode())
+    if (!echoes_mode() || done)
         return;
+    done = TRUE;
 
     fp = fopen(ECHOES_SOUL_FILE, "r");
     if (fp) {
-        if (fscanf(fp, "seed %lu", &seed) == 1) {
-            echoes_timeline_seed = seed;
-            echoes_seed_known = TRUE;
+        while (fgets(buf, (int) sizeof buf, fp)) {
+            unsigned long s;
+            long l;
+
+            if (sscanf(buf, "seed %lu", &s) == 1) {
+                echoes_timeline_seed = s;
+                echoes_seed_known = TRUE;
+            } else if (sscanf(buf, "loops %ld", &l) == 1) {
+                echoes_loop_count = l;
+            }
         }
         (void) fclose(fp);
     }
@@ -92,6 +106,7 @@ echoes_init_seed(void)
     if (!echoes_seed_known) {
         /* first loop of a new timeline: mint and persist a stable seed */
         echoes_timeline_seed = sys_random_seed();
+        echoes_loop_count = 0L;
         echoes_seed_known = TRUE;
         echoes_save_soul();
     }
@@ -100,7 +115,7 @@ echoes_init_seed(void)
 }
 
 /* Called at the end of newgame(): restore the soul's remembered object
-   identities into the freshly created hero. */
+   identities, and announce the loop if this is not the first life. */
 void
 echoes_apply_knowledge(void)
 {
@@ -111,18 +126,33 @@ echoes_apply_knowledge(void)
         return;
 
     fp = fopen(ECHOES_SOUL_FILE, "r");
-    if (!fp)
-        return;
+    if (fp) {
+        while (fgets(buf, (int) sizeof buf, fp)) {
+            int oindx = 0;
 
-    while (fgets(buf, (int) sizeof buf, fp)) {
-        int oindx = 0;
-
-        if (sscanf(buf, "disco %d", &oindx) == 1
-            && oindx >= FIRST_OBJECT && oindx < NUM_OBJECTS)
-            discover_object(oindx, TRUE, TRUE, FALSE);
+            if (sscanf(buf, "disco %d", &oindx) == 1
+                && oindx >= FIRST_OBJECT && oindx < NUM_OBJECTS)
+                discover_object(oindx, TRUE, TRUE, FALSE);
+        }
+        (void) fclose(fp);
     }
 
-    (void) fclose(fp);
+    if (echoes_loop_count > 0L)
+        pline("The dungeon resets, but your soul remembers.  (Loop %ld)",
+              echoes_loop_count + 1L);
+}
+
+/* Called at the start of game-over handling, BEFORE end-of-game disclosure
+   inflates what is "known".  Advances the loop counter and persists the
+   soul's genuine knowledge for the next life. */
+void
+echoes_on_death(void)
+{
+    if (!echoes_mode())
+        return;
+
+    echoes_loop_count++;
+    echoes_save_soul();
 }
 
 /*echoes.c*/

@@ -1161,6 +1161,11 @@ really_done(int how)
     /* in case we're panicking; normally cleared by done_object_cleanup() */
     iflags.perm_invent = FALSE;
 
+    /* Echoes of the Soul: capture the soul's genuine knowledge now, before
+       end-of-game disclosure reveals everything, then advance the loop. */
+    if (!program_state.panicking)
+        echoes_on_death();
+
     /* remember time of death here instead of having bones, rip, and
        topten figure it out separately and possibly getting different
        time or even day if player is slow responding to --More-- */
@@ -1589,8 +1594,6 @@ really_done(int how)
         raw_print("");
         raw_print("");
     }
-
-    echoes_save_soul(); /* Echoes: persist the soul's knowledge for the next loop */
     nh_terminate(EXIT_SUCCESS);
 }
 

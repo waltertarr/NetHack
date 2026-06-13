@@ -997,6 +997,7 @@ extern boolean echoes_mode(void);
 extern void echoes_init_seed(void);
 extern void echoes_apply_knowledge(void);
 extern void echoes_save_soul(void);
+extern void echoes_on_death(void);
 
 /* ### end.c ### */
 
