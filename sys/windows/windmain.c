@@ -10,6 +10,7 @@
 #ifdef DLB
 #include "dlb.h"
 #endif
+#include <process.h> /* for _spawnl() used by echoes_reexec() */
 #include <sys\stat.h>
 #include <errno.h>
 #include <ShlObj.h>
@@ -146,6 +147,22 @@ int nethackw_main(int, char **);
 #else
 #define MAIN main
 #endif
+
+/* Echoes of the Soul: relaunch this executable to begin the next loop.  The
+   forced Wanderer character means no character prompts, and the soul file
+   carries the timeline seed + knowledge.  clearlocks() has already run in
+   really_done(), so the lock is free for the new process. */
+void
+echoes_reexec(void)
+{
+    char exepath[BUFSZ];
+    DWORD n = GetModuleFileName((HANDLE) 0, exepath, (DWORD) (sizeof exepath - 1));
+
+    if (n == 0)
+        return;
+    exepath[n] = '\0';
+    (void) _spawnl(_P_NOWAIT, exepath, exepath, "-u", svp.plname, (char *) 0);
+}
 
 int
 MAIN(int argc, char *argv[])

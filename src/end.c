@@ -1594,6 +1594,10 @@ really_done(int how)
         raw_print("");
         raw_print("");
     }
+
+    /* Echoes: after the death screens and window teardown, relaunch the next
+       loop (no-op unless in Echoes mode and the ending was a real death). */
+    echoes_reloop(how);
     nh_terminate(EXIT_SUCCESS);
 }
 

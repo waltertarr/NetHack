@@ -40,7 +40,8 @@ echoes_selftest_active(void)
 {
     return (boolean) (getenv("NETHACK_ECHOES_DUMP") != 0
                       || getenv("NETHACK_ECHOES_KINJECT") != 0
-                      || getenv("NETHACK_ECHOES_KVERIFY") != 0);
+                      || getenv("NETHACK_ECHOES_KVERIFY") != 0
+                      || getenv("NETHACK_ECHOES_REEXEC_TARGET") != 0);
 }
 
 /* The fixed "Soulbound Wanderer" base.  Echoes starts classless -- the player
@@ -288,6 +289,50 @@ echoes_selftest_knowledge(void)
 
         if (fp) {
             (void) fprintf(fp, "mon %d\nspell %d\n", mon_ok, spell_ok);
+            (void) fclose(fp);
+        }
+        nh_terminate(EXIT_SUCCESS);
+    }
+}
+
+/* Called from really_done() after clearlocks().  On a genuine death, relaunch
+   the timeline's next loop; quit, escape, ascension, and panic end the run so
+   the player can always stop.  No-op outside Echoes mode. */
+void
+echoes_reloop(int how)
+{
+    if (!echoes_mode() || echoes_selftest_active())
+        return;
+    if (how == PANICKED || how >= QUIT) /* not on crash / quit / escape / ascend */
+        return;
+    echoes_reexec();
+}
+
+/* Headless auto-loop self-test.  With NETHACK_ECHOES_REEXEC_TARGET=N and
+   NETHACK_ECHOES_REEXEC_RESULT=<file>, each life advances the loop and
+   relaunches until N loops have run, then writes the final loop count.  This
+   exercises the real re-exec + lock + soul-carry chain without gameplay. */
+void
+echoes_selftest_reexec(void)
+{
+    const char *targ = getenv("NETHACK_ECHOES_REEXEC_TARGET");
+    const char *result = getenv("NETHACK_ECHOES_REEXEC_RESULT");
+
+    if (targ == 0 || *targ == '\0' || result == 0 || *result == '\0')
+        return;
+
+    echoes_loop_count++; /* this life counts as one loop */
+    echoes_save_soul();
+
+    if (echoes_loop_count < atol(targ)) {
+        clearlocks(); /* free the lock before respawning, as really_done does */
+        echoes_reexec();
+        nh_terminate(EXIT_SUCCESS);
+    } else {
+        FILE *fp = fopen(result, "w");
+
+        if (fp) {
+            (void) fprintf(fp, "loops %ld\n", echoes_loop_count);
             (void) fclose(fp);
         }
         nh_terminate(EXIT_SUCCESS);
