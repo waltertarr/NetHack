@@ -29,6 +29,7 @@ static boolean echoes_enabled = FALSE;
 static boolean echoes_seed_known = FALSE;
 static unsigned long echoes_timeline_seed = 0UL;
 static long echoes_loop_count = 0L; /* deaths so far in this timeline */
+static long echoes_fragments = 0L;  /* memory fragments: the soul's meta-currency */
 static boolean echoes_game_ready = FALSE; /* a game is initialised enough that
                                              objects[]/mvitals[]/spl_book[] are real */
 
@@ -100,6 +101,7 @@ echoes_save_soul(void)
 
     (void) fprintf(fp, "seed %lu\n", echoes_timeline_seed);
     (void) fprintf(fp, "loops %ld\n", echoes_loop_count);
+    (void) fprintf(fp, "fragments %ld\n", echoes_fragments);
     /* Only record knowledge once a game is far enough along that objects[],
        mvitals[] and spl_book[] reflect real state.  At startup they do not. */
     if (echoes_game_ready || program_state.in_moveloop || program_state.gameover) {
@@ -149,6 +151,8 @@ echoes_init_seed(void)
                     echoes_seed_known = TRUE;
                 } else if (sscanf(buf, "loops %ld", &l) == 1) {
                     echoes_loop_count = l;
+                } else if (sscanf(buf, "fragments %ld", &l) == 1) {
+                    echoes_fragments = l;
                 }
             }
             (void) fclose(fp);
@@ -214,8 +218,16 @@ echoes_apply_knowledge(void)
 void
 echoes_on_death(void)
 {
+    long deepest;
+
     if (!echoes_mode())
         return;
+
+    /* Award memory fragments for this life's progress.  Spec formula uses a
+       depth term plus contributions from regions/bosses/titles/etc.; for now
+       we use the depth reached and the soul's experience this life. */
+    deepest = (long) deepest_lev_reached(FALSE);
+    echoes_fragments += (3L * deepest) / 2L + (long) u.ulevel;
 
     echoes_loop_count++;
     echoes_save_soul();
@@ -321,8 +333,7 @@ echoes_selftest_reexec(void)
     if (targ == 0 || *targ == '\0' || result == 0 || *result == '\0')
         return;
 
-    echoes_loop_count++; /* this life counts as one loop */
-    echoes_save_soul();
+    echoes_on_death(); /* advance loop + award fragments + save, like a real death */
 
     if (echoes_loop_count < atol(targ)) {
         clearlocks(); /* free the lock before respawning, as really_done does */
@@ -332,7 +343,8 @@ echoes_selftest_reexec(void)
         FILE *fp = fopen(result, "w");
 
         if (fp) {
-            (void) fprintf(fp, "loops %ld\n", echoes_loop_count);
+            (void) fprintf(fp, "loops %ld\nfragments %ld\n",
+                           echoes_loop_count, echoes_fragments);
             (void) fclose(fp);
         }
         nh_terminate(EXIT_SUCCESS);

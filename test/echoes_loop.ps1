@@ -43,13 +43,16 @@ while (-not (Test-Path $result) -and (Get-Date) -lt $deadline) { Start-Sleep -Mi
 Remove-Item Env:\NETHACK_ECHOES_REEXEC_TARGET -ErrorAction SilentlyContinue
 Remove-Item Env:\NETHACK_ECHOES_REEXEC_RESULT -ErrorAction SilentlyContinue
 
-$line = (Get-Content $result -ErrorAction SilentlyContinue) | Where-Object { $_ -match '^loops' }
+$content = Get-Content $result -ErrorAction SilentlyContinue
 Remove-Item $result -ErrorAction SilentlyContinue
-$got = if ($line -match 'loops (\d+)') { [int]$Matches[1] } else { -1 }
+$loopLine = $content | Where-Object { $_ -match '^loops' }
+$fragLine = $content | Where-Object { $_ -match '^fragments' }
+$got = if ($loopLine -match 'loops (\d+)') { [int]$Matches[1] } else { -1 }
+$frags = if ($fragLine -match 'fragments (\d+)') { [int]$Matches[1] } else { -1 }
 
-Write-Host "target loops: $target ; reached: $got"
-if ($got -eq $target) {
-    Write-Host "`nECHOES AUTO-LOOP: PASS"
+Write-Host "target loops: $target ; reached: $got ; memory fragments: $frags"
+if ($got -eq $target -and $frags -gt 0) {
+    Write-Host "`nECHOES AUTO-LOOP (+ fragment accrual): PASS"
     exit 0
 } else {
     Write-Host "`nECHOES AUTO-LOOP: FAIL"
