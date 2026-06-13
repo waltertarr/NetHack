@@ -77,6 +77,27 @@ echoes_force_character(void)
     flags.initalign = str2align(ECHOES_ALIGN);
 }
 
+/* The Soulbound Wanderer is classless: it can train toward any discipline.
+   Called at the start of each life (after skills are initialised), this lifts
+   every skill cap to at least Skilled -- a capable generalist, deliberately
+   short of Expert/Master mastery so power grows gradually -- and makes
+   otherwise-restricted skills trainable.  No-op outside Echoes mode. */
+void
+echoes_broaden_skills(void)
+{
+    int sk;
+
+    if (!echoes_mode())
+        return;
+
+    for (sk = P_FIRST_WEAPON; sk < P_NUM_SKILLS; sk++) {
+        if (u.weapon_skills[sk].max_skill < P_SKILLED)
+            u.weapon_skills[sk].max_skill = P_SKILLED;
+        if (u.weapon_skills[sk].skill == P_ISRESTRICTED)
+            u.weapon_skills[sk].skill = P_UNSKILLED;
+    }
+}
+
 /* Is the current process running in Echoes of the Soul mode? */
 boolean
 echoes_mode(void)
@@ -317,8 +338,9 @@ echoes_selftest_dump(void)
 
     fp = fopen(path, "w");
     if (fp) {
-        (void) fprintf(fp, "seed %lu\nmapsum %lu\nrole %s\n",
-                       echoes_timeline_seed, h, gu.urole.name.m);
+        (void) fprintf(fp, "seed %lu\nmapsum %lu\nrole %s\nthsword_max %d\n",
+                       echoes_timeline_seed, h, gu.urole.name.m,
+                       (int) u.weapon_skills[P_TWO_HANDED_SWORD].max_skill);
         (void) fclose(fp);
     }
     nh_terminate(EXIT_SUCCESS);

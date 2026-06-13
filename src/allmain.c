@@ -830,6 +830,7 @@ newgame(void)
     /* Echoes of the Soul: restore the soul's knowledge, then run any headless
        self-test -- all before the first UI (each is a no-op when inactive). */
     echoes_apply_knowledge();
+    echoes_broaden_skills();
     echoes_selftest_dump();
     echoes_selftest_knowledge();
     echoes_selftest_reexec();

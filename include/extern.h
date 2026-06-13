@@ -1002,6 +1002,7 @@ extern void echoes_selftest_dump(void);
 extern boolean echoes_selftest_active(void);
 extern void echoes_selftest_knowledge(void);
 extern void echoes_force_character(void);
+extern void echoes_broaden_skills(void);
 extern void echoes_reexec(void);
 extern void echoes_reloop(int);
 extern void echoes_selftest_reexec(void);
