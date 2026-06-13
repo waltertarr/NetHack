@@ -1006,6 +1006,8 @@ extern void echoes_broaden_skills(void);
 extern boolean echoes_scripted_active(void);
 extern int echoes_scripted_key(void);
 extern void echoes_transcript(const char *);
+extern int echoes_status_cmd(void);
+extern void echoes_selftest_status(void);
 extern void echoes_reexec(void);
 extern void echoes_reloop(int);
 extern void echoes_selftest_reexec(void);

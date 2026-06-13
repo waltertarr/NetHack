@@ -48,7 +48,8 @@ echoes_selftest_active(void)
     return (boolean) (getenv("NETHACK_ECHOES_DUMP") != 0
                       || getenv("NETHACK_ECHOES_KINJECT") != 0
                       || getenv("NETHACK_ECHOES_KVERIFY") != 0
-                      || getenv("NETHACK_ECHOES_REEXEC_TARGET") != 0);
+                      || getenv("NETHACK_ECHOES_REEXEC_TARGET") != 0
+                      || getenv("NETHACK_ECHOES_STATUS") != 0);
 }
 
 /* The fixed "Soulbound Wanderer" base.  Echoes starts classless -- the player
@@ -75,6 +76,11 @@ echoes_force_character(void)
     if (flags.initgend != ROLE_NONE)
         flags.female = flags.initgend;
     flags.initalign = str2align(ECHOES_ALIGN);
+
+    /* In the headless UI tester, skip the multi-page Book intro so scripted
+       keystrokes line up predictably with the game's prompts. */
+    if (echoes_scripted_active())
+        flags.legacy = FALSE;
 }
 
 /* The Soulbound Wanderer is classless: it can train toward any discipline.
@@ -427,6 +433,46 @@ echoes_selftest_reexec(void)
         }
         nh_terminate(EXIT_SUCCESS);
     }
+}
+
+/* The #echoes extended command: show the player the state of their soul --
+   the current loop, memory fragments, and which knowledge the memory tree is
+   retaining across loops. */
+int
+echoes_status_cmd(void)
+{
+    char buf[BUFSZ];
+
+    if (!echoes_mode()) {
+        pline("The soul stirs only in Echoes of the Soul mode.");
+        return ECMD_OK;
+    }
+
+    pline("Soul: loop %ld, holding %ld memory fragment%s.",
+          echoes_loop_count + 1L, echoes_fragments, plur(echoes_fragments));
+
+    buf[0] = '\0';
+    if (echoes_upgrades & ECHOES_MEM_ITEMS)
+        Strcat(buf, "items ");
+    if (echoes_upgrades & ECHOES_MEM_MONSTERS)
+        Strcat(buf, "monsters ");
+    if (echoes_upgrades & ECHOES_MEM_SPELLS)
+        Strcat(buf, "spells ");
+    pline("Memory retained across loops: %s", *buf ? buf : "nothing yet.");
+    return ECMD_OK;
+}
+
+/* Headless test of the #echoes status display: when NETHACK_ECHOES_STATUS is
+   set, invoke the command handler (its messages are captured via the UI
+   transcript) and exit.  Lets the player-facing status be verified without
+   driving the extended-command menu. */
+void
+echoes_selftest_status(void)
+{
+    if (getenv("NETHACK_ECHOES_STATUS") == 0)
+        return;
+    (void) echoes_status_cmd();
+    nh_terminate(EXIT_SUCCESS);
 }
 
 /* ---- headless UI tester -------------------------------------------------

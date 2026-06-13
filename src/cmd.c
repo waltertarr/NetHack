@@ -1711,6 +1711,8 @@ struct ext_func_tab extcmdlist[] = {
               doddrop, 0, NULL },
     { 'e',    "eat", "eat something",
               doeat, CMD_M_PREFIX, NULL },
+    { '\0',   "echoes", "show the state of your soul (Echoes of the Soul)",
+              echoes_status_cmd, IFBURIED | AUTOCOMPLETE | GENERALCMD, NULL },
     { 'E',    "engrave", "engrave writing on the floor",
               doengrave, 0, NULL },
     { M('e'), "enhance", "advance or check weapon and spell skills",
@@ -5214,6 +5216,10 @@ readchar_core(coordxy *x, coordxy *y, int *mod)
 {
     int sym;
 
+    if (echoes_scripted_active()) { /* Echoes UI tester: scripted keystrokes */
+        sym = echoes_scripted_key();
+        goto readchar_done;
+    }
     if (iflags.debug_fuzzer) {
         sym = randomkey();
         goto readchar_done;
