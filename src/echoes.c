@@ -29,6 +29,8 @@ static boolean echoes_enabled = FALSE;
 static boolean echoes_seed_known = FALSE;
 static unsigned long echoes_timeline_seed = 0UL;
 static long echoes_loop_count = 0L; /* deaths so far in this timeline */
+static boolean echoes_game_ready = FALSE; /* a game is initialised enough that
+                                             objects[]/mvitals[]/spl_book[] are real */
 
 /* Is the headless self-test active? (NETHACK_ECHOES_DUMP names a file.)
    In this mode interactive character selection is skipped -- the character
@@ -36,9 +38,9 @@ static long echoes_loop_count = 0L; /* deaths so far in this timeline */
 boolean
 echoes_selftest_active(void)
 {
-    const char *p = getenv("NETHACK_ECHOES_DUMP");
-
-    return (boolean) (p != 0 && *p != '\0');
+    return (boolean) (getenv("NETHACK_ECHOES_DUMP") != 0
+                      || getenv("NETHACK_ECHOES_KINJECT") != 0
+                      || getenv("NETHACK_ECHOES_KVERIFY") != 0);
 }
 
 /* Is the current process running in Echoes of the Soul mode? */
@@ -71,13 +73,22 @@ echoes_save_soul(void)
 
     (void) fprintf(fp, "seed %lu\n", echoes_timeline_seed);
     (void) fprintf(fp, "loops %ld\n", echoes_loop_count);
-    /* Only record discoveries from within an actual game.  At startup the
-       objects[] table is not game-initialised and its name_known flags do
-       not reflect anything the soul has genuinely learned. */
-    if (program_state.in_moveloop || program_state.gameover) {
+    /* Only record knowledge once a game is far enough along that objects[],
+       mvitals[] and spl_book[] reflect real state.  At startup they do not. */
+    if (echoes_game_ready || program_state.in_moveloop || program_state.gameover) {
+        int mndx, si;
+
+        /* identified object types */
         for (oindx = FIRST_OBJECT; oindx < NUM_OBJECTS; oindx++)
             if (objects[oindx].oc_name_known)
                 (void) fprintf(fp, "disco %d\n", oindx);
+        /* bestiary: monster species the soul has encountered */
+        for (mndx = LOW_PM; mndx < NUMMONS; mndx++)
+            if (svm.mvitals[mndx].mvflags & G_KNOWN)
+                (void) fprintf(fp, "mvital %d\n", mndx);
+        /* learned spells */
+        for (si = 0; si < MAXSPELL && spellid(si) != NO_SPELL; si++)
+            (void) fprintf(fp, "spell %d\n", (int) spellid(si));
     }
 
     (void) fclose(fp);
@@ -144,19 +155,28 @@ echoes_apply_knowledge(void)
     if (!echoes_mode())
         return;
 
+    echoes_game_ready = TRUE; /* objects[]/mvitals[]/spl_book[] are valid now */
+
     fp = fopen(ECHOES_SOUL_FILE, "r");
     if (fp) {
         while (fgets(buf, (int) sizeof buf, fp)) {
-            int oindx = 0;
+            int oindx = 0, mndx = 0, sid = 0;
 
-            if (sscanf(buf, "disco %d", &oindx) == 1
-                && oindx >= FIRST_OBJECT && oindx < NUM_OBJECTS)
-                discover_object(oindx, TRUE, TRUE, FALSE);
+            if (sscanf(buf, "disco %d", &oindx) == 1) {
+                if (oindx >= FIRST_OBJECT && oindx < NUM_OBJECTS)
+                    discover_object(oindx, TRUE, TRUE, FALSE);
+            } else if (sscanf(buf, "mvital %d", &mndx) == 1) {
+                if (mndx >= LOW_PM && mndx < NUMMONS)
+                    svm.mvitals[mndx].mvflags |= G_KNOWN;
+            } else if (sscanf(buf, "spell %d", &sid) == 1) {
+                if (sid >= FIRST_SPELL && sid <= LAST_SPELL)
+                    (void) force_learn_spell((short) sid);
+            }
         }
         (void) fclose(fp);
     }
 
-    if (echoes_loop_count > 0L)
+    if (echoes_loop_count > 0L && !echoes_selftest_active())
         pline("The dungeon resets, but your soul remembers.  (Loop %ld)",
               echoes_loop_count + 1L);
 }
@@ -206,6 +226,45 @@ echoes_selftest_dump(void)
         (void) fclose(fp);
     }
     nh_terminate(EXIT_SUCCESS);
+}
+
+/* Headless knowledge round-trip self-test.  Two phases, by env var:
+     NETHACK_ECHOES_KINJECT  -- learn a fixed test monster + spell, then die
+                                (which persists the soul) and exit.
+     NETHACK_ECHOES_KVERIFY=<file> -- a fresh life has restored the soul by now;
+                                report whether the test knowledge survived, exit.
+   No-op when neither variable is set. */
+void
+echoes_selftest_knowledge(void)
+{
+    const char *verify = getenv("NETHACK_ECHOES_KVERIFY");
+    int mon_mndx = LOW_PM + 50; /* an arbitrary but stable test species */
+    short test_spell = SPE_FORCE_BOLT;
+
+    if (getenv("NETHACK_ECHOES_KINJECT") != 0) {
+        if (mon_mndx < NUMMONS)
+            svm.mvitals[mon_mndx].mvflags |= G_KNOWN;
+        (void) force_learn_spell(test_spell);
+        echoes_on_death();          /* advance the loop and save the soul */
+        nh_terminate(EXIT_SUCCESS);
+    } else if (verify != 0 && *verify != '\0') {
+        FILE *fp = fopen(verify, "w");
+        int i, spell_ok = 0;
+        int mon_ok = (mon_mndx < NUMMONS
+                      && (svm.mvitals[mon_mndx].mvflags & G_KNOWN)) ? 1 : 0;
+
+        for (i = 0; i < MAXSPELL; i++)
+            if (spellid(i) == test_spell) {
+                spell_ok = 1;
+                break;
+            }
+
+        if (fp) {
+            (void) fprintf(fp, "mon %d\nspell %d\n", mon_ok, spell_ok);
+            (void) fclose(fp);
+        }
+        nh_terminate(EXIT_SUCCESS);
+    }
 }
 
 /*echoes.c*/
