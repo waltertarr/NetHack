@@ -288,6 +288,11 @@ init_random(int (*fn)(int))
 void
 reseed_random(int (*fn)(int))
 {
+    /* Echoes of the Soul keeps the timeline deterministic: never reseed,
+       so the same timeline seed reproduces the same dungeon for the whole
+       run.  (Normally mklev() reseeds to defeat seed prediction.) */
+    if (echoes_mode())
+        return;
    /* only reseed if we are certain that the seed generation is unguessable
     * by the players. */
     if (has_strong_rngseed)

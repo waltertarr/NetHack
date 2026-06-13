@@ -79,39 +79,47 @@ echoes_save_soul(void)
 void
 echoes_init_seed(void)
 {
-    static boolean done = FALSE;
+    static boolean loaded = FALSE;
     FILE *fp;
     char buf[BUFSZ];
 
-    if (!echoes_mode() || done)
+    if (!echoes_mode())
         return;
-    done = TRUE;
 
-    fp = fopen(ECHOES_SOUL_FILE, "r");
-    if (fp) {
-        while (fgets(buf, (int) sizeof buf, fp)) {
-            unsigned long s;
-            long l;
+    if (!loaded) {
+        loaded = TRUE;
 
-            if (sscanf(buf, "seed %lu", &s) == 1) {
-                echoes_timeline_seed = s;
-                echoes_seed_known = TRUE;
-            } else if (sscanf(buf, "loops %ld", &l) == 1) {
-                echoes_loop_count = l;
+        fp = fopen(ECHOES_SOUL_FILE, "r");
+        if (fp) {
+            while (fgets(buf, (int) sizeof buf, fp)) {
+                unsigned long s;
+                long l;
+
+                if (sscanf(buf, "seed %lu", &s) == 1) {
+                    echoes_timeline_seed = s;
+                    echoes_seed_known = TRUE;
+                } else if (sscanf(buf, "loops %ld", &l) == 1) {
+                    echoes_loop_count = l;
+                }
             }
+            (void) fclose(fp);
         }
-        (void) fclose(fp);
+
+        if (!echoes_seed_known) {
+            /* first loop of a new timeline: mint and persist a stable seed */
+            echoes_timeline_seed = sys_random_seed();
+            echoes_loop_count = 0L;
+            echoes_seed_known = TRUE;
+            echoes_save_soul();
+        }
     }
 
-    if (!echoes_seed_known) {
-        /* first loop of a new timeline: mint and persist a stable seed */
-        echoes_timeline_seed = sys_random_seed();
-        echoes_loop_count = 0L;
-        echoes_seed_known = TRUE;
-        echoes_save_soul();
-    }
-
-    echoes_force_seed(echoes_timeline_seed);
+    /* Re-pin every time this init phase runs.  It can execute more than once
+       during startup, and each run re-randomises rn2 via init_random just
+       before calling us; without re-pinning, that randomisation would win
+       and the dungeon would not be reproducible. */
+    if (echoes_seed_known)
+        echoes_force_seed(echoes_timeline_seed);
 }
 
 /* Called at the end of newgame(): restore the soul's remembered object
