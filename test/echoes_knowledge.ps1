@@ -1,13 +1,17 @@
-# echoes_knowledge.ps1 - verifies the soul's KNOWLEDGE persists across a loop.
+# echoes_knowledge.ps1 - verifies the memory tree GATES which knowledge the
+# soul retains across a loop.
 #
-# Two headless phases against a fresh timeline:
-#   phase 1 (KINJECT) - a new life learns a fixed test monster + spell, then
-#                       "dies" (which persists the soul) and exits.
-#   phase 2 (KVERIFY) - the next life restores the soul; the test reports whether
-#                       that monster knowledge and spell survived the loop.
+#   Scenario A: with the memory upgrades unlocked, an injected monster + spell
+#               survive a death/loop.
+#   Scenario B: without the upgrades, that same knowledge is NOT retained.
+#
+# Each scenario uses the two-phase headless self-test: phase 1 (KINJECT) learns
+# a fixed test monster + spell and "dies" (persisting the soul); phase 2
+# (KVERIFY) restores the soul in a fresh life and reports what survived.
+# NETHACK_ECHOES_BUY=<bitmask> unlocks upgrades for the test (1=items 2=monsters
+# 4=spells).
 #
 # Requires a built NetHack.exe in ..\binary.
-# Usage:  powershell -ExecutionPolicy Bypass -File test\echoes_knowledge.ps1
 
 $ErrorActionPreference = "Stop"
 $bin = Resolve-Path (Join-Path $PSScriptRoot "..\binary")
@@ -17,14 +21,11 @@ if (-not (Test-Path $exe)) { Write-Error "NetHack.exe not found at $exe - build 
 $tmp = [System.IO.Path]::GetTempPath()
 $inp = Join-Path $bin "nh_in.txt"
 Set-Content -Path $inp -Value (([char]10).ToString() * 20) -Encoding ascii -NoNewline
-
-$env:NETHACK_ECHOES = "1"
-# The character is forced by Echoes mode (the Soulbound Wanderer); clear any
-# stale NETHACKOPTIONS so it can't influence the run.
 Remove-Item Env:\NETHACKOPTIONS -ErrorAction SilentlyContinue
+$env:NETHACK_ECHOES = "1"
 $soul = Join-Path $bin "echoes.soul"
 
-function Run-NH($envName, $envVal) {
+function Invoke-NH($envName, $envVal) {
     $name = "echoknow_" + ([guid]::NewGuid().ToString("N").Substring(0, 8))
     Set-Item -Path "Env:$envName" -Value $envVal
     $p = Start-Process -FilePath $exe -ArgumentList "-u", $name `
@@ -37,27 +38,35 @@ function Run-NH($envName, $envVal) {
     Remove-Item -Path "Env:$envName" -EA SilentlyContinue
 }
 
-# Fresh timeline, then inject knowledge and die.
-if (Test-Path $soul) { Remove-Item $soul }
-Run-NH "NETHACK_ECHOES_KINJECT" "1"
+function Test-Knowledge {
+    # inject + verify against a fresh timeline; return "<mon> <spell>" as True/False
+    if (Test-Path $soul) { Remove-Item $soul }
+    Invoke-NH "NETHACK_ECHOES_KINJECT" "1"
+    $result = Join-Path $tmp ("echoknow_" + ([guid]::NewGuid().ToString("N").Substring(0, 8)) + ".txt")
+    Invoke-NH "NETHACK_ECHOES_KVERIFY" ($result -replace '\\', '/')
+    $lines = Get-Content $result -ErrorAction SilentlyContinue
+    Remove-Item $result -ErrorAction SilentlyContinue
+    $mon = [bool]($lines | Where-Object { $_ -eq 'mon 1' })
+    $spell = [bool]($lines | Where-Object { $_ -eq 'spell 1' })
+    return "$mon $spell"
+}
 
-# Next life: verify the knowledge was restored.
-$result = Join-Path $tmp ("echoknow_" + ([guid]::NewGuid().ToString("N").Substring(0, 8)) + ".txt")
-Run-NH "NETHACK_ECHOES_KVERIFY" ($result -replace '\\', '/')
+# Scenario A: upgrades unlocked (items|monsters|spells = 7).
+$env:NETHACK_ECHOES_BUY = "7"
+$on = (Test-Knowledge) -split ' '
 
-$lines = Get-Content $result -EA SilentlyContinue
-Remove-Item $result -EA SilentlyContinue
-$monOk = [bool]($lines | Where-Object { $_ -eq 'mon 1' })
-$spellOk = [bool]($lines | Where-Object { $_ -eq 'spell 1' })
+# Scenario B: no upgrades unlocked.
+Remove-Item Env:\NETHACK_ECHOES_BUY -ErrorAction SilentlyContinue
+$off = (Test-Knowledge) -split ' '
 
-Write-Host "verify output: $($lines -join '; ')"
-Write-Host ("[{0}] monster knowledge persisted across the loop" -f $(if ($monOk) { "PASS" } else { "FAIL" }))
-Write-Host ("[{0}] spell knowledge persisted across the loop" -f $(if ($spellOk) { "PASS" } else { "FAIL" }))
+Write-Host ("with upgrades   : mon={0,-5} spell={1,-5} (expect True  True)" -f $on[0], $on[1])
+Write-Host ("without upgrades: mon={0,-5} spell={1,-5} (expect False False)" -f $off[0], $off[1])
 
-if ($monOk -and $spellOk) {
-    Write-Host "`nECHOES KNOWLEDGE PERSISTENCE: PASS"
+$ok = ($on[0] -eq 'True') -and ($on[1] -eq 'True') -and ($off[0] -eq 'False') -and ($off[1] -eq 'False')
+if ($ok) {
+    Write-Host "`nECHOES MEMORY TREE GATING: PASS"
     exit 0
 } else {
-    Write-Host "`nECHOES KNOWLEDGE PERSISTENCE: FAIL"
+    Write-Host "`nECHOES MEMORY TREE GATING: FAIL"
     exit 1
 }

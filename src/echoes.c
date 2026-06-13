@@ -24,12 +24,18 @@ extern unsigned long sys_random_seed(void);
 
 #define ECHOES_SOUL_FILE "echoes.soul"
 
+/* Memory-tree upgrades: each gates a category of soul knowledge across loops. */
+#define ECHOES_MEM_ITEMS    0x1L /* identified object types persist */
+#define ECHOES_MEM_MONSTERS 0x2L /* bestiary (encountered species) persists */
+#define ECHOES_MEM_SPELLS   0x4L /* learned spells persist */
+
 static boolean echoes_checked = FALSE;
 static boolean echoes_enabled = FALSE;
 static boolean echoes_seed_known = FALSE;
 static unsigned long echoes_timeline_seed = 0UL;
 static long echoes_loop_count = 0L; /* deaths so far in this timeline */
 static long echoes_fragments = 0L;  /* memory fragments: the soul's meta-currency */
+static long echoes_upgrades = 0L;   /* unlocked memory-tree upgrades (bitmask) */
 static boolean echoes_game_ready = FALSE; /* a game is initialised enough that
                                              objects[]/mvitals[]/spl_book[] are real */
 
@@ -102,22 +108,27 @@ echoes_save_soul(void)
     (void) fprintf(fp, "seed %lu\n", echoes_timeline_seed);
     (void) fprintf(fp, "loops %ld\n", echoes_loop_count);
     (void) fprintf(fp, "fragments %ld\n", echoes_fragments);
+    (void) fprintf(fp, "upgrades %ld\n", echoes_upgrades);
     /* Only record knowledge once a game is far enough along that objects[],
-       mvitals[] and spl_book[] reflect real state.  At startup they do not. */
+       mvitals[] and spl_book[] reflect real state.  At startup they do not.
+       Each knowledge category is gated by its memory-tree upgrade. */
     if (echoes_game_ready || program_state.in_moveloop || program_state.gameover) {
         int mndx, si;
 
         /* identified object types */
-        for (oindx = FIRST_OBJECT; oindx < NUM_OBJECTS; oindx++)
-            if (objects[oindx].oc_name_known)
-                (void) fprintf(fp, "disco %d\n", oindx);
+        if (echoes_upgrades & ECHOES_MEM_ITEMS)
+            for (oindx = FIRST_OBJECT; oindx < NUM_OBJECTS; oindx++)
+                if (objects[oindx].oc_name_known)
+                    (void) fprintf(fp, "disco %d\n", oindx);
         /* bestiary: monster species the soul has encountered */
-        for (mndx = LOW_PM; mndx < NUMMONS; mndx++)
-            if (svm.mvitals[mndx].mvflags & G_KNOWN)
-                (void) fprintf(fp, "mvital %d\n", mndx);
+        if (echoes_upgrades & ECHOES_MEM_MONSTERS)
+            for (mndx = LOW_PM; mndx < NUMMONS; mndx++)
+                if (svm.mvitals[mndx].mvflags & G_KNOWN)
+                    (void) fprintf(fp, "mvital %d\n", mndx);
         /* learned spells */
-        for (si = 0; si < MAXSPELL && spellid(si) != NO_SPELL; si++)
-            (void) fprintf(fp, "spell %d\n", (int) spellid(si));
+        if (echoes_upgrades & ECHOES_MEM_SPELLS)
+            for (si = 0; si < MAXSPELL && spellid(si) != NO_SPELL; si++)
+                (void) fprintf(fp, "spell %d\n", (int) spellid(si));
     }
 
     (void) fclose(fp);
@@ -153,6 +164,8 @@ echoes_init_seed(void)
                     echoes_loop_count = l;
                 } else if (sscanf(buf, "fragments %ld", &l) == 1) {
                     echoes_fragments = l;
+                } else if (sscanf(buf, "upgrades %ld", &l) == 1) {
+                    echoes_upgrades = l;
                 }
             }
             (void) fclose(fp);
@@ -175,8 +188,40 @@ echoes_init_seed(void)
         echoes_force_seed(echoes_timeline_seed);
 }
 
-/* Called at the end of newgame(): restore the soul's remembered object
-   identities, and announce the loop if this is not the first life. */
+/* Spend memory fragments on memory-tree upgrades as the soul can afford them
+   (cheapest first).  A future version will let the player choose at a memory
+   tree; for now the soul deepens its memory automatically.  Updates state in
+   memory only -- the spend is persisted by the next echoes_on_death(). */
+static void
+echoes_autobuy(void)
+{
+    static const struct echoes_upgrade {
+        long bit;
+        long cost;
+    } tree[] = {
+        { ECHOES_MEM_ITEMS, 3L },
+        { ECHOES_MEM_MONSTERS, 5L },
+        { ECHOES_MEM_SPELLS, 8L },
+    };
+    boolean bought = TRUE;
+
+    while (bought) {
+        unsigned i;
+
+        bought = FALSE;
+        for (i = 0; i < sizeof tree / sizeof tree[0]; i++)
+            if (!(echoes_upgrades & tree[i].bit)
+                && echoes_fragments >= tree[i].cost) {
+                echoes_fragments -= tree[i].cost;
+                echoes_upgrades |= tree[i].bit;
+                bought = TRUE;
+            }
+    }
+}
+
+/* Called at the end of newgame(): spend fragments on memory upgrades, restore
+   the soul's remembered knowledge (gated by those upgrades), and announce the
+   loop if this is not the first life. */
 void
 echoes_apply_knowledge(void)
 {
@@ -187,6 +232,17 @@ echoes_apply_knowledge(void)
         return;
 
     echoes_game_ready = TRUE; /* objects[]/mvitals[]/spl_book[] are valid now */
+
+    /* Spend fragments on memory upgrades before restoring: a test override
+       (NETHACK_ECHOES_BUY = bitmask) or, in real play, automatic purchase. */
+    {
+        const char *buy = getenv("NETHACK_ECHOES_BUY");
+
+        if (buy != 0 && *buy != '\0')
+            echoes_upgrades |= atol(buy);
+        else if (!echoes_selftest_active())
+            echoes_autobuy();
+    }
 
     fp = fopen(ECHOES_SOUL_FILE, "r");
     if (fp) {
