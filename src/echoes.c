@@ -215,34 +215,38 @@ echoes_init_seed(void)
         echoes_force_seed(echoes_timeline_seed);
 }
 
-/* Spend memory fragments on memory-tree upgrades as the soul can afford them
-   (cheapest first).  A future version will let the player choose at a memory
-   tree; for now the soul deepens its memory automatically.  Updates state in
-   memory only -- the spend is persisted by the next echoes_on_death(). */
+/* Offer the player each affordable, not-yet-owned memory upgrade (cheapest
+   first).  The soul chooses what it learns to remember; the spend is persisted
+   by the next echoes_on_death().  (A browsable memory-tree menu can replace
+   these prompts later.) */
 static void
-echoes_autobuy(void)
+echoes_offer_upgrades(void)
 {
     static const struct echoes_upgrade {
         long bit;
         long cost;
+        const char *what;
     } tree[] = {
-        { ECHOES_MEM_ITEMS, 3L },
-        { ECHOES_MEM_MONSTERS, 5L },
-        { ECHOES_MEM_SPELLS, 8L },
+        { ECHOES_MEM_ITEMS, 3L, "items" },
+        { ECHOES_MEM_MONSTERS, 5L, "monsters" },
+        { ECHOES_MEM_SPELLS, 8L, "spells" },
     };
-    boolean bought = TRUE;
+    int i;
 
-    while (bought) {
-        unsigned i;
+    for (i = 0; i < SIZE(tree); i++) {
+        char qbuf[QBUFSZ];
 
-        bought = FALSE;
-        for (i = 0; i < sizeof tree / sizeof tree[0]; i++)
-            if (!(echoes_upgrades & tree[i].bit)
-                && echoes_fragments >= tree[i].cost) {
-                echoes_fragments -= tree[i].cost;
-                echoes_upgrades |= tree[i].bit;
-                bought = TRUE;
-            }
+        if ((echoes_upgrades & tree[i].bit) != 0
+            || echoes_fragments < tree[i].cost)
+            continue;
+        Sprintf(qbuf,
+                "Spend %ld memory fragment%s to remember %s across loops?",
+                tree[i].cost, plur(tree[i].cost), tree[i].what);
+        if (y_n(qbuf) == 'y') {
+            echoes_fragments -= tree[i].cost;
+            echoes_upgrades |= tree[i].bit;
+            pline("Your soul learns to remember %s.", tree[i].what);
+        }
     }
 }
 
@@ -268,7 +272,7 @@ echoes_apply_knowledge(void)
         if (buy != 0 && *buy != '\0')
             echoes_upgrades |= atol(buy);
         else if (!echoes_selftest_active())
-            echoes_autobuy();
+            echoes_offer_upgrades();
     }
 
     fp = fopen(ECHOES_SOUL_FILE, "r");
