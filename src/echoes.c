@@ -43,6 +43,32 @@ echoes_selftest_active(void)
                       || getenv("NETHACK_ECHOES_KVERIFY") != 0);
 }
 
+/* The fixed "Soulbound Wanderer" base.  Echoes starts classless -- the player
+   does not choose a role -- and the same character every loop keeps the
+   timeline coherent (same character => reproducible dungeon).  Tourist is used
+   as a deliberately weak, generic traveler base; its starting kit is pared
+   back toward a true wanderer in echoes_wanderer_start(). */
+#define ECHOES_ROLE  "Tourist"
+#define ECHOES_RACE  "human"
+#define ECHOES_GEND  "male"
+#define ECHOES_ALIGN "neutral"
+
+/* Force the fixed Echoes character before role selection.  No-op outside
+   Echoes mode (classic NetHack keeps normal character selection). */
+void
+echoes_force_character(void)
+{
+    if (!echoes_mode())
+        return;
+
+    flags.initrole = str2role(ECHOES_ROLE);
+    flags.initrace = str2race(ECHOES_RACE);
+    flags.initgend = str2gend(ECHOES_GEND);
+    if (flags.initgend != ROLE_NONE)
+        flags.female = flags.initgend;
+    flags.initalign = str2align(ECHOES_ALIGN);
+}
+
 /* Is the current process running in Echoes of the Soul mode? */
 boolean
 echoes_mode(void)
@@ -222,7 +248,8 @@ echoes_selftest_dump(void)
 
     fp = fopen(path, "w");
     if (fp) {
-        (void) fprintf(fp, "seed %lu\nmapsum %lu\n", echoes_timeline_seed, h);
+        (void) fprintf(fp, "seed %lu\nmapsum %lu\nrole %s\n",
+                       echoes_timeline_seed, h, gu.urole.name.m);
         (void) fclose(fp);
     }
     nh_terminate(EXIT_SUCCESS);

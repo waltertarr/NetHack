@@ -19,7 +19,9 @@ $inp = Join-Path $bin "nh_in.txt"
 Set-Content -Path $inp -Value (([char]10).ToString() * 20) -Encoding ascii -NoNewline
 
 $env:NETHACK_ECHOES = "1"
-$env:NETHACKOPTIONS = "role:Valkyrie,race:human,gender:female,align:lawful"
+# The character is forced by Echoes mode (the Soulbound Wanderer); clear any
+# stale NETHACKOPTIONS so it can't influence the run.
+Remove-Item Env:\NETHACKOPTIONS -ErrorAction SilentlyContinue
 $soul = Join-Path $bin "echoes.soul"
 
 function Run-NH($envName, $envVal) {

@@ -1001,6 +1001,7 @@ extern void echoes_on_death(void);
 extern void echoes_selftest_dump(void);
 extern boolean echoes_selftest_active(void);
 extern void echoes_selftest_knowledge(void);
+extern void echoes_force_character(void);
 
 /* ### end.c ### */
 

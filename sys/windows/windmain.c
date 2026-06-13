@@ -460,7 +460,8 @@ attempt_restore:
            player might change the hero's name while doing that,
            in which case we try to restore under the new name
            and skip selection this time if that didn't succeed */
-        if (!iflags.renameinprogress && !echoes_selftest_active()) {
+        echoes_force_character(); /* Echoes: fixed classless start (no-op unless echoes mode) */
+        if (!iflags.renameinprogress && !echoes_selftest_active() && !echoes_mode()) {
             player_selection();
             if (iflags.renameinprogress) {
             /* player has renamed the hero while selecting role;
