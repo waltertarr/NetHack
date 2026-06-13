@@ -30,6 +30,17 @@ static boolean echoes_seed_known = FALSE;
 static unsigned long echoes_timeline_seed = 0UL;
 static long echoes_loop_count = 0L; /* deaths so far in this timeline */
 
+/* Is the headless self-test active? (NETHACK_ECHOES_DUMP names a file.)
+   In this mode interactive character selection is skipped -- the character
+   must be fully specified via NETHACKOPTIONS. */
+boolean
+echoes_selftest_active(void)
+{
+    const char *p = getenv("NETHACK_ECHOES_DUMP");
+
+    return (boolean) (p != 0 && *p != '\0');
+}
+
 /* Is the current process running in Echoes of the Soul mode? */
 boolean
 echoes_mode(void)
@@ -161,6 +172,40 @@ echoes_on_death(void)
 
     echoes_loop_count++;
     echoes_save_soul();
+}
+
+/* Headless self-test hook.  When NETHACK_ECHOES_DUMP names a file, write a
+   checksum of the freshly generated level (terrain + floor objects) together
+   with the timeline seed, then exit -- before the interactive game loop.
+   This lets the dungeon be compared across runs without a playthrough.
+   No-op unless the variable is set. */
+void
+echoes_selftest_dump(void)
+{
+    const char *path = getenv("NETHACK_ECHOES_DUMP");
+    unsigned long h = 2166136261UL; /* FNV-1a 32-bit offset basis */
+    int x, y;
+    FILE *fp;
+
+    if (!path || !*path)
+        return;
+
+    for (y = 0; y < ROWNO; y++)
+        for (x = 0; x < COLNO; x++) {
+            struct obj *o = svl.level.objects[x][y];
+
+            h ^= (unsigned long) (unsigned char) levl[x][y].typ;
+            h *= 16777619UL;
+            h ^= (unsigned long) (unsigned) (o ? o->otyp : 0);
+            h *= 16777619UL;
+        }
+
+    fp = fopen(path, "w");
+    if (fp) {
+        (void) fprintf(fp, "seed %lu\nmapsum %lu\n", echoes_timeline_seed, h);
+        (void) fclose(fp);
+    }
+    nh_terminate(EXIT_SUCCESS);
 }
 
 /*echoes.c*/

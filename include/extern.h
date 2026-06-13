@@ -998,6 +998,8 @@ extern void echoes_init_seed(void);
 extern void echoes_apply_knowledge(void);
 extern void echoes_save_soul(void);
 extern void echoes_on_death(void);
+extern void echoes_selftest_dump(void);
+extern boolean echoes_selftest_active(void);
 
 /* ### end.c ### */
 
