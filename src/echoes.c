@@ -521,28 +521,38 @@ echoes_selftest_summary(void)
                                    to <file> for inspection.
    Both are no-ops unless their variable is set. */
 
+/* Open the scripted-keys file once.  Scripted input is active ONLY if that
+   file actually exists and opens -- so a stale NETHACK_ECHOES_KEYS environment
+   variable (e.g. left over in a shell from a test whose key file has since
+   been deleted) cannot hijack a real player's keyboard. */
+static FILE *
+echoes_keys_file(void)
+{
+    static boolean checked = FALSE;
+    static FILE *fp = NULL;
+
+    if (!checked) {
+        const char *k = getenv("NETHACK_ECHOES_KEYS");
+
+        checked = TRUE;
+        if (k != 0 && *k != '\0')
+            fp = fopen(k, "r");
+    }
+    return fp;
+}
+
 boolean
 echoes_scripted_active(void)
 {
-    const char *k = getenv("NETHACK_ECHOES_KEYS");
-
-    return (boolean) (k != 0 && *k != '\0');
+    return (boolean) (echoes_keys_file() != NULL);
 }
 
 int
 echoes_scripted_key(void)
 {
-    static boolean opened = FALSE;
-    static FILE *fp = NULL;
+    FILE *fp = echoes_keys_file();
     int c;
 
-    if (!opened) {
-        const char *k = getenv("NETHACK_ECHOES_KEYS");
-
-        opened = TRUE;
-        if (k != 0 && *k != '\0')
-            fp = fopen(k, "r");
-    }
     if (fp != NULL && (c = fgetc(fp)) != EOF)
         return c;
     return '\033'; /* ESC once the script runs out: cancels prompts/--More-- */
